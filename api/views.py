@@ -3,15 +3,16 @@ from rest_framework import generics, permissions, views
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth.models import User
 from rest_framework import status
-from .serializers import UserSerializer, ProfileSerializer
+from .serializers import UserSerializer, ProfileSerializer, ScheduleSerializer, PensionSerializer
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from .models import Profile
+from .models import Profile, Schedule, Pension
 from rest_framework.views import APIView
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views import View
 from rest_framework.decorators import api_view
+from .utils import generate_qr_code  # Import the function here
 
 
 class CreateUserView(generics.CreateAPIView):
@@ -37,14 +38,26 @@ class CreateUserView(generics.CreateAPIView):
         # Saving the user and the profile together
         serializer.save()
 
-class UserDetailView(generics.RetrieveAPIView):
+class SeniorsListView(generics.ListAPIView):
+    queryset = Profile.objects.all()
+    serializer_class = ProfileSerializer
+    permission_classes = [AllowAny]  # Allows unrestricted access
+
+class SeniorView(generics.RetrieveAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
         return self.request.user
-    
+
+class UserDetailView(generics.RetrieveAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user 
     
 class ProfileView(generics.RetrieveAPIView):
     queryset = Profile.objects.all()
@@ -58,3 +71,72 @@ class ProfileView(generics.RetrieveAPIView):
         serializer = self.get_serializer(profile)
         return Response(serializer.data)
         
+
+class ScheduleCreateView(generics.CreateAPIView):
+    queryset = Schedule.objects.all()
+    serializer_class = ScheduleSerializer
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        print("Request Data:", request.data)  # Print request data to see what is being sent
+        response = super().post(request, *args, **kwargs)
+        print("Response Data:", response.data)  # Print response data to see the result
+        return response
+    
+class ScheduleListView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, *args, **kwargs):
+        schedules = Schedule.objects.all()
+        serializer = ScheduleSerializer(schedules, many=True)
+        return Response(serializer.data)
+    
+
+class PensionCreateView(generics.CreateAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = PensionSerializer  # Add this line
+
+    def get(self, request, senior_id):
+        return Response({'detail': 'Use POST to submit a pension file.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def post(self, request, senior_id):
+        try:
+            senior = User.objects.get(id=senior_id)
+        except User.DoesNotExist:
+            return Response({'error': 'Senior not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        data = request.data.copy()
+        data['seniors'] = senior.id
+        serializer = self.get_serializer(data=data)  # Use self.get_serializer()
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class PensionListView(generics.ListAPIView):
+    serializer_class = PensionSerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        user_id = self.kwargs['user_id']
+        return Pension.objects.filter(seniors__id=user_id)
+
+
+class DeletePensionView(APIView):
+    permission_classes = [AllowAny]
+
+    def delete(self, request, pension_id, *args, **kwargs):
+        # Fetch the pension object by ID
+        pension = get_object_or_404(Pension, id=pension_id)
+
+        # Delete the pension object
+        pension.delete()
+
+        return Response({"message": "Pension deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+    
+
+class AllPensionListView(generics.ListAPIView):
+    queryset = Pension.objects.all()
+    serializer_class = PensionSerializer
+    permission_classes = [AllowAny]
