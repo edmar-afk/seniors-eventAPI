@@ -16,5 +16,7 @@ urlpatterns = [
     path('pensions/create/<int:senior_id>/', views.PensionCreateView.as_view(), name='create_pension'),
     path('pensions/user/<int:user_id>/', views.PensionListView.as_view(), name='pension-list'),
     path('delete-pension/<int:pension_id>/', views.DeletePensionView.as_view(), name='delete-pension'),
-    path('pensions-list/', views.AllPensionListView.as_view(), name='pension-list'),
+    path('pensions-list/', views.AllPensionListView.as_view(), name='pensions-list'),
+    
+    path('add-qr-to-pension/<int:pension_id>/', views.AddQrCodeToPension.as_view(), name='add_qr_to_pension'),
 ]

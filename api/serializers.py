@@ -5,7 +5,7 @@ from .models import Profile, Pension, Schedule, Notification
 class UserDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['first_name', 'date_joined', 'is_superuser']  # Include only the fields you need for this view
+        fields = ['id', 'username', 'first_name', 'password', 'is_superuser']
 
 class ProfileSerializer(serializers.ModelSerializer):
     user = UserDetailSerializer()  # Use the nested serializer for user details
@@ -33,6 +33,12 @@ class PensionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pension
         fields = '__all__'
+        
+class SubmitRequirementsSerializer(serializers.ModelSerializer):
+    seniors = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())  # Accepts the User ID
+    class Meta:
+        model = Pension
+        fields = '__all__'
 
 class ScheduleSerializer(serializers.ModelSerializer):
     class Meta:
@@ -43,3 +49,10 @@ class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
         fields = '__all__'
+
+
+class PensionQrCodeSerializer(serializers.ModelSerializer):
+    user = UserDetailSerializer()  # Use the nested serializer for user details
+    class Meta:
+        model = Pension
+        fields = ['id', 'seniors', 'qr', 'status', 'notification_status']

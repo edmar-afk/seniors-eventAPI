@@ -3,7 +3,7 @@ from rest_framework import generics, permissions, views
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth.models import User
 from rest_framework import status
-from .serializers import UserSerializer, ProfileSerializer, ScheduleSerializer, PensionSerializer
+from .serializers import UserSerializer, ProfileSerializer, ScheduleSerializer, PensionSerializer, PensionQrCodeSerializer, SubmitRequirementsSerializer
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from .models import Profile, Schedule, Pension
@@ -13,7 +13,9 @@ from django.shortcuts import get_object_or_404
 from django.views import View
 from rest_framework.decorators import api_view
 from .utils import generate_qr_code  # Import the function here
-
+from django.core.files.base import ContentFile
+from io import BytesIO
+import qrcode
 
 class CreateUserView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -93,9 +95,9 @@ class ScheduleListView(APIView):
     
 
 class PensionCreateView(generics.CreateAPIView):
+    serializer_class = SubmitRequirementsSerializer
     permission_classes = [AllowAny]
-    serializer_class = PensionSerializer  # Add this line
-
+    
     def get(self, request, senior_id):
         return Response({'detail': 'Use POST to submit a pension file.'}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
@@ -105,14 +107,25 @@ class PensionCreateView(generics.CreateAPIView):
         except User.DoesNotExist:
             return Response({'error': 'Senior not found'}, status=status.HTTP_404_NOT_FOUND)
 
+        # Prepare data for the serializer
         data = request.data.copy()
-        data['seniors'] = senior.id
-        serializer = self.get_serializer(data=data)  # Use self.get_serializer()
+        data['seniors'] = senior.id  # Use the senior's ID directly
+        if 'notification_status' not in data:
+            data['notification_status'] = 'Notification not Sent'
+
+        # Debug: Print data to check the format
+        print("Request Data:", data)
+
+        # Use the serializer with the modified data
+        serializer = self.get_serializer(data=data)
 
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            print("Serializer Errors:", serializer.errors)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     
 class PensionListView(generics.ListAPIView):
     serializer_class = PensionSerializer
@@ -140,3 +153,36 @@ class AllPensionListView(generics.ListAPIView):
     queryset = Pension.objects.all()
     serializer_class = PensionSerializer
     permission_classes = [AllowAny]
+  
+  
+  
+class AddQrCodeToPension(generics.CreateAPIView):
+    serializer_class = PensionSerializer
+    permission_classes = [AllowAny]
+
+    def post(self, request, pension_id):
+        # Get the pension object by ID
+        pension = get_object_or_404(Pension, id=pension_id)
+
+        # Generate QR code content
+        qr_content = f"Pension ID: {pension.id}\nUser: {pension.seniors.username}\nStatus: {pension.status}"
+
+        # Generate QR code
+        qr_image = qrcode.make(qr_content)
+        qr_io = BytesIO()
+        qr_image.save(qr_io, format="PNG")
+        qr_file = ContentFile(qr_io.getvalue(), f"{pension.id}_qr.png")
+
+        # Save QR code to the pension object
+        pension.qr.save(f"{pension.id}_qr.png", qr_file)
+        pension.save()
+
+        # Serialize the response
+        response_data = {
+            "pension_id": pension.id,
+            "username": pension.seniors.username,
+            "status": pension.status,
+            "qr_code_url": pension.qr.url  # Assuming the QR code is stored as an image file
+        }
+
+        return Response(response_data, status=status.HTTP_200_OK)

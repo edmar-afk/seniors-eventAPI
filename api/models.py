@@ -1,8 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import FileExtensionValidator
-import os
-from django.core.validators import FileExtensionValidator
+
+
 # Create your models here.
 
 
@@ -18,7 +18,7 @@ class Pension(models.Model):
     seniors = models.ForeignKey(User, on_delete=models.CASCADE)
     requirement = models.FileField(upload_to='pensions/', validators=[FileExtensionValidator(allowed_extensions=['png', 'jpeg', 'jpg'])],)
     date_submitted = models.DateTimeField(auto_now_add=True)
-    status = models.TextField()
+    status = models.TextField(default='Not Eligible')
     qr = models.FileField(upload_to='qrs/', validators=[FileExtensionValidator(allowed_extensions=['png', 'jpeg', 'jpg'])], blank=True)
     notification_status = models.TextField()
     
