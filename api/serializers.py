@@ -5,7 +5,7 @@ from .models import Profile, Pension, Schedule, Notification
 class UserDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'first_name', 'password', 'is_superuser']
+        fields = ['id', 'username', 'first_name','last_name' , 'password', 'is_superuser', 'date_joined']
 
 class ProfileSerializer(serializers.ModelSerializer):
     user = UserDetailSerializer()  # Use the nested serializer for user details
@@ -19,7 +19,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'first_name', 'password', 'mobile_num', 'is_superuser']
+        fields = ['id', 'username', 'first_name', 'last_name', 'password', 'mobile_num', 'is_superuser']
         extra_kwargs = {'password': {'write_only': True}}
 
     def create(self, validated_data):

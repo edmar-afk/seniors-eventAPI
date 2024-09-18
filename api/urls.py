@@ -19,4 +19,5 @@ urlpatterns = [
     path('pensions-list/', views.AllPensionListView.as_view(), name='pensions-list'),
     
     path('add-qr-to-pension/<int:pension_id>/', views.AddQrCodeToPension.as_view(), name='add_qr_to_pension'),
+    path('send-notification/<int:senior_id>/', views.SendNotificationAPIView.as_view(), name='send-notification'),
 ]

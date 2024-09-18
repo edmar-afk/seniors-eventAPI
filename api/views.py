@@ -16,6 +16,74 @@ from .utils import generate_qr_code  # Import the function here
 from django.core.files.base import ContentFile
 from io import BytesIO
 import qrcode
+import requests
+import time
+from django.contrib.auth import get_user_model
+User = get_user_model()
+
+
+from rest_framework import views, status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from django.contrib.auth import get_user_model
+import requests
+import time
+
+User = get_user_model()
+
+class SendNotificationAPIView(views.APIView):
+    permission_classes = [AllowAny]  # Ensure only authenticated users can access
+
+    def post(self, request, senior_id):
+        # Get the senior based on the ID provided in the URL
+        senior = get_object_or_404(User, id=senior_id)
+        
+        # Default message to be sent
+        default_message = f"Good day Mr/Mrs. {senior.first_name} from {senior.last_name}. The DSWD has successfully issued your pension release, please see them in the office."
+        api_key = 'b9cc33a52d99ea25fe3c3a3bb43307e83da9bbfb'  # Replace with your actual API key
+
+        phone_number = senior.username.strip()  # Assuming username holds the phone number
+
+        data = {
+            'key': api_key,
+            'number': phone_number,
+            'message': default_message,
+            'type': 'sms',
+            'prioritize': 1
+        }
+
+        success_count = 0
+        fail_count = 0
+        fail_reasons = []
+
+        try:
+            response = requests.post('https://smsgateway.rbsoft.org/services/send.php', data=data)
+            response_data = response.json()
+
+            if response.status_code == 200 and response_data.get('success'):
+                success_count += 1
+            else:
+                fail_count += 1
+                fail_reasons.append(response_data)
+        except Exception as e:
+            fail_count += 1
+            fail_reasons.append({'error': str(e)})
+
+        time.sleep(2)  # Introduce a 2-second delay
+
+        return Response(
+            {
+                'success_count': success_count,
+                'fail_count': fail_count,
+                'fail_reasons': fail_reasons
+            },
+            status=status.HTTP_200_OK if success_count > 0 else status.HTTP_400_BAD_REQUEST
+        )
+
+
+
+
+
 
 class CreateUserView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -164,8 +232,12 @@ class AddQrCodeToPension(generics.CreateAPIView):
         # Get the pension object by ID
         pension = get_object_or_404(Pension, id=pension_id)
 
-        # Generate QR code content
-        qr_content = f"Pension ID: {pension.id}\nUser: {pension.seniors.username}\nStatus: {pension.status}"
+        # Update the status to 'Eligible'
+        pension.status = 'Eligible'
+        pension.save()  # Save the status update
+
+        # Generate QR code content with first_name and updated status
+        qr_content = f"Mr/Mrs {pension.seniors.first_name} is {pension.status} for Pension Release"
 
         # Generate QR code
         qr_image = qrcode.make(qr_content)
@@ -180,8 +252,6 @@ class AddQrCodeToPension(generics.CreateAPIView):
         # Serialize the response
         response_data = {
             "pension_id": pension.id,
-            "username": pension.seniors.username,
-            "status": pension.status,
             "qr_code_url": pension.qr.url  # Assuming the QR code is stored as an image file
         }
 
