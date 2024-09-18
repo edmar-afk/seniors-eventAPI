@@ -9,6 +9,9 @@ urlpatterns = [
     path('token/refresh', TokenRefreshView.as_view(), name='refresh_token'),
     
     path('user/', views.UserDetailView.as_view(), name='user_detail'),
+    path('users/<int:pk>/delete/', views.UserDeleteView.as_view(), name='user-delete'),
+
+    
     path('profile/<int:user_id>/', views.ProfileView.as_view(), name='profile_picture'),
     path('schedules/', views.ScheduleCreateView.as_view(), name='schedule-create'),
     path('schedule-list/', views.ScheduleListView.as_view(), name='schedule-list'),

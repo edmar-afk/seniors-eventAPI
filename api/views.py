@@ -256,3 +256,18 @@ class AddQrCodeToPension(generics.CreateAPIView):
         }
 
         return Response(response_data, status=status.HTTP_200_OK)
+    
+class UserDeleteView(generics.DestroyAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [AllowAny]
+    
+    def delete(self, request, *args, **kwargs):
+        user_id = self.kwargs.get('pk')
+        try:
+            user = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        user.delete()
+        return Response({'message': 'User deleted successfully'}, status=status.HTTP_204_NO_CONTENT)
